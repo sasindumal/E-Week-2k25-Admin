@@ -5,61 +5,56 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
-// Admin Pages Only
-import AdminLogin from "./src/pages/AdminLogin";
-import AdminHistory from "./src/pages/AdminHistroy";
-import AdminDashboard from "./src/pages/AdminDashBoard";
-import ManageEvents from "./src/pages/ManageEvents";
-import EventForm from "./src/pages/EventForm";
-import EditableEventForm from "./src/pages/EditableEventForm";
-import SetResult from "./src/pages/SetResult";
-import AdminLeaderBoard from "./src/pages/AdminLeaderBoard";
-import EditPointsForm from "./src/pages/editpoints";
-import AdminSkillStorm from "./src/pages/AdminSkillStorm";
-import AddHistory from "./src/pages/addHistroy";
-import EditHistory from "./src/pages/editHistroy";
-
-// Context
-import { AppProvider } from "./src/context/AppContext";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Index from "./pages/Index";
+import Events from "./pages/Events";
+import Gallery from "./pages/Gallery";
+import Scorecards from "./pages/Scorecards";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AppProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Redirect root to admin login */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            
-            {/* Admin Login */}
-            <Route path="/login" element={<AdminLogin />} />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/history" element={<AdminHistory />} />
-            <Route path="/admin/ManageEvents" element={<ManageEvents />} />
-            <Route path="/admin/EventForm" element={<EventForm />} />
-            <Route path="/admin/EditableEventForm" element={<EditableEventForm />} />
-            <Route path="/admin/SetResult" element={<SetResult />} />
-            <Route path="/admin/skillstorm" element={<AdminSkillStorm />} />
-            <Route path="/admin/leaderboard" element={<AdminLeaderBoard />} />
-            <Route path="/admin/addHistroy" element={<AddHistory />} />
-            <Route path="/admin/editHistroy/:id" element={<EditHistory />} />
-            <Route path="/admin/edit-points/:team/:points" element={<EditPointsForm />} />
-            
-            {/* Catch all other routes and redirect to login */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AppProvider>
+  <QueryClientProvider client={queryClient} data-oid="p4x93f-">
+    <TooltipProvider data-oid="moj1m-e">
+      <Toaster data-oid="7k0rtc4" />
+      <Sonner data-oid="8uj-:.4" />
+      <BrowserRouter data-oid="e6k32j4">
+        <Routes data-oid="ceyftwe">
+          <Route
+            path="/"
+            element={<Index data-oid="_877fm3" />}
+            data-oid="d7k02uo"
+          />
+
+          <Route
+            path="/events"
+            element={<Events data-oid="tsa_14e" />}
+            data-oid="9vn9h6m"
+          />
+
+          <Route
+            path="/gallery"
+            element={<Gallery data-oid="-p26ppe" />}
+            data-oid="wrnwlnb"
+          />
+
+          <Route
+            path="/scorecards"
+            element={<Scorecards data-oid="co:goee" />}
+            data-oid="jd:88si"
+          />
+
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route
+            path="*"
+            element={<NotFound data-oid="02w_9a_" />}
+            data-oid="jjeeqbu"
+          />
+        </Routes>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<App data-oid="gk.6ulb" />);
