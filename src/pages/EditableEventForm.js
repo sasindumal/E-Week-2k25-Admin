@@ -94,6 +94,37 @@ const EditableEventForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Function to build leaderboard update data
+  const buildLeaderboardData = (eventData) => {
+    const positionOrder = ["winners", "firstRunnerUp", "secondRunnerUp", "thirdRunnerUp"];
+    const scores = eventData.pointsConfiguration || [];
+
+    const leaderboardData = {
+      eventId: eventId,
+      eventName: eventData.title || "",
+      E21Rank: "",
+      E22Rank: "",
+      E23Rank: "",
+      E24Rank: "",
+      StaffRank: "",
+      E21Score: "",
+      E22Score: "",
+      E23Score: "",
+      E24Score: "",
+      StaffScore: "",
+    };
+
+    positionOrder.forEach((position, index) => {
+      const team = eventData[position];
+      if (team && scores[index] !== undefined) {
+        leaderboardData[`${team}Rank`] = position;
+        leaderboardData[`${team}Score`] = scores[index];
+      }
+    });
+
+    return leaderboardData;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -110,6 +141,7 @@ const EditableEventForm = () => {
     };
 
     try {
+      // First update the event
       const response = await fetch(
         `${BASE_URL}/api/createEvents/UpdateEventsById`,
         {
@@ -120,19 +152,47 @@ const EditableEventForm = () => {
       );
       console.log("Sending data:", finalData);
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Event updated successfully:", result);
-        alert("Event updated successfully!");
-        navigate("/admin/ManageEvents");
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
-        console.error("Event update failed:", errorData);
-        alert("Update failed: " + (errorData.error || errorData.message || "Unknown error"));
+        throw new Error("Event update failed: " + (errorData.error || errorData.message || "Unknown error"));
       }
+
+      const result = await response.json();
+      console.log("Event updated successfully:", result);
+
+      // If event is finished and has winners, update leaderboard
+      if (formData.status === 'finished' && (formData.winners || formData.firstRunnerUp || formData.secondRunnerUp || formData.thirdRunnerUp)) {
+        console.log("Updating leaderboard for finished event...");
+
+        const leaderboardData = buildLeaderboardData(finalData);
+        console.log("Leaderboard data:", leaderboardData);
+
+        const lbResponse = await fetch(
+          `${BASE_URL}/api/LeaderBoard/addEventResult`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(leaderboardData),
+          }
+        );
+
+        if (!lbResponse.ok) {
+          const lbErrorData = await lbResponse.json();
+          console.warn("Leaderboard update failed:", lbErrorData);
+          // Don't throw error here - event was updated successfully
+          alert("Event updated successfully, but leaderboard update failed: " + (lbErrorData.message || "Unknown error"));
+        } else {
+          console.log("Leaderboard updated successfully");
+          alert("Event and leaderboard updated successfully!");
+        }
+      } else {
+        alert("Event updated successfully!");
+      }
+
+      navigate("/admin/ManageEvents");
     } catch (err) {
-      console.error("Network error:", err);
-      alert("Network error occurred");
+      console.error("Error:", err);
+      alert(err.message || "An error occurred");
     } finally {
       setIsLoading(false);
     }
