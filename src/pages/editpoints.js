@@ -6,15 +6,20 @@ const EditPointsForm = () => {
 
   const { team,points } = useParams(); // Get team from URL
   const navigate = useNavigate();
-  const [newpoints, setNewpoints] = useState("");
+  const [mode, setMode] = useState('set'); // 'set' or 'adjust'
+  const [value, setValue] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!newpoints || newpoints < 0) {
-      alert("Please enter a valid points value.");
+    const base = parseInt(points || '0');
+    const input = parseInt(value);
+    if (isNaN(input)) {
+      alert("Enter a valid number.");
       return;
     }
+
+    const finalPoints = mode === 'adjust' ? Math.max(0, base + input) : Math.max(0, input);
 
     try {
       const response = await fetch(`${BASE_URL}/api/LeaderBoard/updatePoints/${team}`, {
@@ -22,7 +27,7 @@ const EditPointsForm = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ points: newpoints }),
+        body: JSON.stringify({ points: finalPoints }),
       });
 
       if (!response.ok) {
@@ -49,21 +54,27 @@ const EditPointsForm = () => {
           padding: "30px",
           borderRadius: "10px",
           color: "white",
-          width: "300px",
+          width: "320px",
           boxShadow: "0 0 10px rgba(0,0,0,0.5)"
         }}
       >
-        <h2 style={{ marginBottom: "20px", textAlign: "center" }}>
+        <h2 style={{ marginBottom: "16px", textAlign: "center" }}>
           Edit Points - {team}
         </h2>
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <button type="button" onClick={() => setMode('set')} style={{ flex: 1, padding: 8, borderRadius: 6, border: mode==='set'? '1px solid #ef4444':'1px solid #555', background: mode==='set'? '#3b0b0b':'transparent', color: '#fff' }}>Set</button>
+          <button type="button" onClick={() => setMode('adjust')} style={{ flex: 1, padding: 8, borderRadius: 6, border: mode==='adjust'? '1px solid #ef4444':'1px solid #555', background: mode==='adjust'? '#3b0b0b':'transparent', color: '#fff' }}>Adjust ±</button>
+        </div>
+
         <label style={{ display: "block", marginBottom: "10px" }}>
-          New Points:
+          {mode === 'set' ? 'New Total Points' : `Adjust By (Current: ${points})`}
         </label>
         <input
           type="number"
-          value={newpoints}
-          onChange={(e) => setNewpoints(e.target.value)}
-          placeholder={`Current Points: ${points}`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={mode === 'set' ? `e.g. ${points}` : '+/- value'}
           required
           style={{
             width: "100%",
@@ -73,20 +84,37 @@ const EditPointsForm = () => {
             marginBottom: "20px"
           }}
         />
-        <button
-          type="submit"
-          style={{
-            backgroundColor: "#ef4444",
-            color: "white",
-            padding: "10px",
-            width: "100%",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer"
-          }}
-        >
-          Save Points
-        </button>
+        <div style={{ display:'flex', gap:8 }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              backgroundColor: "#374151",
+              color: "white",
+              padding: "10px",
+              width: "50%",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer"
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            style={{
+              backgroundColor: "#ef4444",
+              color: "white",
+              padding: "10px",
+              width: "50%",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer"
+            }}
+          >
+            Save
+          </button>
+        </div>
       </form>
     </div>
   );

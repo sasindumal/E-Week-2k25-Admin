@@ -216,13 +216,44 @@
   font-style: italic;
 }
 
+/* Points input */
+.points-input {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+.points-input label {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+}
+.points-input input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+}
+
 /* Form Actions */
 .form-actions {
   display: flex;
   justify-content: center;
+  gap: 12px;
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+.cancel-button {
+  padding: 0.9rem 1.6rem;
+  background: rgba(255,255,255,0.08);
+  color: #e5e7eb;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.cancel-button:hover { background: rgba(255,255,255,0.12); }
 
 .save-button {
   display: inline-flex;

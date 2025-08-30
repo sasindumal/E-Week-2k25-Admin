@@ -12,13 +12,6 @@ const Sidebar = ({ activeEvents = 0 }) => {
 
   const navItems = [
     {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: <LayoutDashboard className="w-5 h-5" />,
-      path: "/",
-      badge: null,
-    },
-    {
       id: "events",
       label: "Events",
       icon: <Calendar className="w-5 h-5" />,

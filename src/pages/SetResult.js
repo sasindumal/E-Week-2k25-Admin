@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Trophy, Medal, Award, Save, ArrowLeft, Calendar, Clock, MapPin, Users } from "lucide-react";
 import "./SetResult.css";
@@ -17,6 +17,13 @@ const SetResult = () => {
     secondRunnerUp: "",
     thirdRunnerUp: "",
     status: "finished",
+  });
+
+  const [positionScores, setPositionScores] = useState({
+    winners: 0,
+    firstRunnerUp: 0,
+    secondRunnerUp: 0,
+    thirdRunnerUp: 0,
   });
 
   const [secondFormData, setSecondFormData] = useState({
@@ -77,17 +84,35 @@ const SetResult = () => {
     fetchEvent();
   }, [eventId]);
 
-  // Update secondFormData whenever event or formData changes
+  // Prime positionScores from event configuration
   useEffect(() => {
-    if (!event.pointsConfiguration) return;
+    if (event && Array.isArray(event.pointsConfiguration)) {
+      const [p1 = 0, p2 = 0, p3 = 0, p4 = 0] = event.pointsConfiguration;
+      setPositionScores({
+        winners: Number(p1) || 0,
+        firstRunnerUp: Number(p2) || 0,
+        secondRunnerUp: Number(p3) || 0,
+        thirdRunnerUp: Number(p4) || 0,
+      });
+    }
+  }, [event]);
 
+  // Redirect if not a competition
+  useEffect(() => {
+    if (event && event.category && event.category.toLowerCase() !== 'competition') {
+      alert('Results can only be set for Competition events.');
+      navigate(-1);
+    }
+  }, [event, navigate]);
+
+  // Update secondFormData whenever event or selections/scores change
+  useEffect(() => {
     const positionOrder = [
       "winners",
       "firstRunnerUp",
       "secondRunnerUp",
       "thirdRunnerUp",
     ];
-    const scores = event.pointsConfiguration;
 
     const updatedFormData = {
       eventId: eventId,
@@ -104,7 +129,7 @@ const SetResult = () => {
       StaffScore: "",
     };
 
-    positionOrder.forEach((position, index) => {
+    positionOrder.forEach((position) => {
       const team =
         position === "winners"
           ? formData.winners || event.winners
@@ -116,12 +141,12 @@ const SetResult = () => {
 
       if (team) {
         updatedFormData[`${team}Rank`] = position;
-        updatedFormData[`${team}Score`] = scores[index];
+        updatedFormData[`${team}Score`] = Number(positionScores[position]) || 0;
       }
     });
 
     setSecondFormData(updatedFormData);
-  }, [event, eventId, formData]);
+  }, [event, eventId, formData, positionScores]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -263,7 +288,7 @@ const SetResult = () => {
           <form onSubmit={handleSubmit} className="result-form">
             <div className="positions-grid">
               {["winners", "firstRunnerUp", "secondRunnerUp", "thirdRunnerUp"].map(
-                (position, idx) => (
+                (position) => (
                   <div key={position} className="position-card">
                     <div className="position-header">
                       {getPositionIcon(position)}
@@ -292,12 +317,31 @@ const SetResult = () => {
                         </option>
                       ))}
                     </select>
+
+                    <div className="points-input">
+                      <label>Points for {getPositionLabel(position)}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={positionScores[position]}
+                        onChange={(e) => setPositionScores((prev) => ({ ...prev, [position]: Number(e.target.value) }))}
+                      />
+                      <small style={{ color: '#9ca3af' }}>Current: {positionScores[position]} pts</small>
+                    </div>
                   </div>
                 )
               )}
             </div>
 
             <div className="form-actions">
+              <button
+                type="button"
+                className="cancel-button"
+                onClick={() => navigate(-1)}
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 className="save-button"
