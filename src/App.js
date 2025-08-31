@@ -9,6 +9,7 @@ import EventForm from "./pages/EventForm";
 import EditableEventForm from "./pages/EditableEventForm";
 import SetResult from "./pages/SetResult";
 import AdminLeaderBoard from "./pages/AdminLeaderBoard";
+import AdminScorecards from "./pages/AdminScorecards";
 import EditPointsForm from "./pages/editpoints";
 import AdminSkillStorm from "./pages/AdminSkillStorm";
 import AdminHistory from "./pages/AdminHistroy";
@@ -36,6 +37,7 @@ function App() {
             <Route path="/admin/SetResult" element={<SetResult />} />
             <Route path="/admin/skillstorm" element={<AdminSkillStorm />} />
             <Route path="/admin/leaderboard" element={<AdminLeaderBoard/>} />
+            <Route path="/admin/scorecards-manager" element={<AdminScorecards/>} />
             <Route path="/admin/history" element={<AdminHistory />} />
             <Route path="/admin/addHistroy" element={<AddHistory/>} />
             <Route path="/admin/editHistroy/:id" element={<EditHistory />} />
