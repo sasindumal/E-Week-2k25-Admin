@@ -4,6 +4,7 @@ import {
   Calendar,
   Trophy,
   Shield,
+  Award,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -23,6 +24,13 @@ const Sidebar = ({ activeEvents = 0 }) => {
       label: "Leaderboard",
       icon: <Trophy className="w-5 h-5" />,
       path: "/admin/leaderboard",
+      badge: null,
+    },
+    {
+      id: "scorecards",
+      label: "Scorecards",
+      icon: <Award className="w-5 h-5" />,
+      path: "/admin/scorecards-manager",
       badge: null,
     },
   ];
