@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Trophy, Medal, Award, Trash2, Edit, PlusCircle, X, Save, Shield } from "lucide-react";
 import Sidebar from "./sidebar";
+import "./AdminLeaderBoard.css";
 
 const BATCHES = ["E21", "E22", "E23", "E24", "Staff"];
 const RANK_KEYS = ["winners", "firstRunnerUp", "secondRunnerUp", "thirdRunnerUp"];
@@ -89,7 +90,7 @@ const AdminScorecards = () => {
           .sort((a, b) => (b.score || 0) - (a.score || 0));
         list.push({
           id: eventId,
-          name: (Array.isArray(lb.EventName) && lb.EventName[idx]) || event.title || "Event",
+          name: (Array.isArray(lb.EventName) && lb.EventName[idx]) || event.name || event.title || "—",
           date: event.date,
           winners: event.winners || (scores[0]?.batch ?? ""),
           placements: scores,
@@ -98,7 +99,7 @@ const AdminScorecards = () => {
     } else {
       // Fallback: finished events without per-batch scores
       finishedEvents.forEach((ev) => {
-        list.push({ id: ev._id, name: ev.title, date: ev.date, winners: ev.winners || "", placements: [] });
+        list.push({ id: ev._id, name: ev.name || ev.title, date: ev.date, winners: ev.winners || "", placements: [] });
       });
     }
     return list;
@@ -229,7 +230,7 @@ const AdminScorecards = () => {
   return (
     <div className="admin-leaderboard">
       <Sidebar />
-      <main className="leaderboard-main" style={{ maxWidth: 1400, margin: "0 auto", padding: "24px 16px" }}>
+      <main className="leaderboard-main" style={{ maxWidth: 1400, padding: "24px 16px" }}>
         <div className="leaderboard-header" style={{ textAlign: "center", marginBottom: 24 }}>
           <h1 className="page-title">Scorecards Management</h1>
           <p className="page-subtitle">View, add, and edit event scorecards. Changes automatically update the leaderboard.</p>
