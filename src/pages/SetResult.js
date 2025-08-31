@@ -129,20 +129,30 @@ const SetResult = () => {
       StaffScore: "",
     };
 
+    const totals = {};
+    const precedence = { winners: 1, firstRunnerUp: 2, secondRunnerUp: 3, thirdRunnerUp: 4 };
     positionOrder.forEach((position) => {
       const team =
         position === "winners"
-          ? formData.winners || event.winners
+          ? (formData.winners || event.winners)
           : position === "firstRunnerUp"
-          ? formData.firstRunnerUp || event.firstRunnerUp
+          ? (formData.firstRunnerUp || event.firstRunnerUp)
           : position === "secondRunnerUp"
-          ? formData.secondRunnerUp || event.secondRunnerUp
-          : formData.thirdRunnerUp || event.thirdRunnerUp;
+          ? (formData.secondRunnerUp || event.secondRunnerUp)
+          : (formData.thirdRunnerUp || event.thirdRunnerUp);
 
       if (team) {
-        updatedFormData[`${team}Rank`] = position;
-        updatedFormData[`${team}Score`] = Number(positionScores[position]) || 0;
+        if (!totals[team]) totals[team] = { score: 0, bestRank: null };
+        totals[team].score += Number(positionScores[position]) || 0;
+        if (!totals[team].bestRank || precedence[position] < precedence[totals[team].bestRank]) {
+          totals[team].bestRank = position;
+        }
       }
+    });
+
+    Object.entries(totals).forEach(([team, { score, bestRank }]) => {
+      updatedFormData[`${team}Rank`] = bestRank;
+      updatedFormData[`${team}Score`] = score;
     });
 
     setSecondFormData(updatedFormData);
@@ -151,10 +161,6 @@ const SetResult = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (hasDuplicates()) {
-      alert("Please select different participants for each position.");
-      return;
-    }
 
     try {
       setLoading(true);
@@ -281,7 +287,7 @@ const SetResult = () => {
           <div className="form-header">
             <h3 className="form-title">Set Competition Results</h3>
             <p className="form-description">
-              Select the winning teams for each position. Each team can only be selected once.
+              Select the winning teams for each position. You may assign multiple positions to the same batch; points will be summed.
             </p>
           </div>
 
@@ -305,14 +311,7 @@ const SetResult = () => {
                         Select {getPositionLabel(position)}
                       </option>
                       {options.map((opt) => (
-                        <option
-                          key={opt}
-                          value={opt}
-                          disabled={
-                            Object.values(formData).includes(opt) &&
-                            formData[position] !== opt
-                          }
-                        >
+                        <option key={opt} value={opt}>
                           {opt}
                         </option>
                       ))}
