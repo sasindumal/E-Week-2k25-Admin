@@ -44,6 +44,21 @@ const AdminScorecards = () => {
     const [formScores, setFormScores] = useState({}); // { E21: number, ... }
     const [submitting, setSubmitting] = useState(false);
 
+    // Create-new scorecard state
+    const [createMode, setCreateMode] = useState(false);
+    const [newEvent, setNewEvent] = useState({
+        title: "",
+        date: "",
+        time: "",
+        location: "",
+        eventType: "Team",
+        category: "Competition",
+        points0: 100,
+        points1: 75,
+        points2: 50,
+        points3: 25,
+    });
+
     const loadData = async () => {
         try {
             setLoading(true);
@@ -125,25 +140,35 @@ const AdminScorecards = () => {
             secondRunnerUp: ev.secondRunnerUp || "",
             thirdRunnerUp: ev.thirdRunnerUp || "",
         });
+        setCreateMode(false);
         setEditingEvent(ev);
         setModalOpen(true);
     };
 
-    const openAddModal = () => {
-        // Allow adding for any finished event; pick the most recent without winners if possible
-        const target = finishedEvents.find((e) => !e.winners && !e.firstRunnerUp && !e.secondRunnerUp && !e.thirdRunnerUp) || finishedEvents[0];
-        if (!target) return;
-        const pre = {};
-        BATCHES.forEach((b) => (pre[b] = 0));
-        setFormScores(pre);
+    const openCreateModal = () => {
+        setCreateMode(true);
+        setEditingEvent(null);
         setFormRanks({ winners: "", firstRunnerUp: "", secondRunnerUp: "", thirdRunnerUp: "" });
-        setEditingEvent(target);
+        setFormScores({});
+        setNewEvent({
+            title: "",
+            date: "",
+            time: "",
+            location: "",
+            eventType: "Team",
+            category: "Competition",
+            points0: 100,
+            points1: 75,
+            points2: 50,
+            points3: 25,
+        });
         setModalOpen(true);
     };
 
     const closeModal = () => {
         setModalOpen(false);
         setEditingEvent(null);
+        setCreateMode(false);
     };
 
     const handleRankChange = (pos, value) => {
@@ -157,13 +182,82 @@ const AdminScorecards = () => {
 
     const onSubmit = async (e) => {
         e.preventDefault();
-        if (!editingEvent) return;
-
 
         try {
             setSubmitting(true);
 
-            // 1) Update event winners on event document
+            if (createMode) {
+                // Create a new finished event with winners
+                const pointsConfiguration = [
+                    Number(newEvent.points0) || 0,
+                    Number(newEvent.points1) || 0,
+                    Number(newEvent.points2) || 0,
+                    Number(newEvent.points3) || 0,
+                ];
+
+                const createRes = await fetch(`${BASE_URL}/api/createEvents/createEvents`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        title: newEvent.title,
+                        date: newEvent.date,
+                        time: newEvent.time,
+                        location: newEvent.location,
+                        eventType: newEvent.eventType,
+                        category: newEvent.category,
+                        status: "finished",
+                        registrationOpen: false,
+                        winners: formRanks.winners || null,
+                        firstRunnerUp: formRanks.firstRunnerUp || null,
+                        secondRunnerUp: formRanks.secondRunnerUp || null,
+                        thirdRunnerUp: formRanks.thirdRunnerUp || null,
+                        pointsConfiguration,
+                    }),
+                });
+
+                const created = await createRes.json().catch(() => ({}));
+                if (!createRes.ok || !created?.event?._id) {
+                    throw new Error(created.message || "Failed to create event");
+                }
+
+                const eventId = created.event._id;
+                const eventName = newEvent.title;
+
+                // Build leaderboard payload from rank selections and pointsConfiguration
+                const payload = { eventId, eventName };
+                const rankToPoints = {
+                    winners: pointsConfiguration[0] ?? 0,
+                    firstRunnerUp: pointsConfiguration[1] ?? 0,
+                    secondRunnerUp: pointsConfiguration[2] ?? 0,
+                    thirdRunnerUp: pointsConfiguration[3] ?? 0,
+                };
+                BATCHES.forEach((b) => {
+                    const rk = Object.entries(formRanks).find(([, batch]) => batch === b)?.[0] || "";
+                    if (rk) {
+                        payload[`${b}Rank`] = rk;
+                        payload[`${b}Score`] = Number(rankToPoints[rk]) || 0;
+                    }
+                });
+
+                const lbRes = await fetch(`${BASE_URL}/api/LeaderBoard/addEventResult`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (!lbRes.ok) {
+                    const j = await lbRes.json().catch(() => ({}));
+                    throw new Error(j.message || "Failed to update leaderboard");
+                }
+
+                alert("Scorecard created successfully");
+                closeModal();
+                await loadData();
+                return;
+            }
+
+            if (!editingEvent) return;
+
+            // Update existing event winners
             const updateRes = await fetch(`${BASE_URL}/api/createEvents/UpdateEventsById`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -183,7 +277,7 @@ const AdminScorecards = () => {
                 throw new Error(j.message || "Failed to update event");
             }
 
-            // 2) Update leaderboard with addEventResult (idempotent for edits)
+            // Update leaderboard with addEventResult (idempotent for edits)
             const payload = {
                 eventId: editingEvent._id || editingEvent.id,
                 eventName: editingEvent.title,
@@ -218,7 +312,42 @@ const AdminScorecards = () => {
     };
 
     const onDelete = async (eventId) => {
-        alert("Delete scorecard is not supported by current API. We can add a server endpoint to remove an event result from leaderboard if you want.");
+        if (!eventId) return;
+        const confirmDel = window.confirm("Remove this scorecard from the leaderboard and clear winners from the event?");
+        if (!confirmDel) return;
+        try {
+            setSubmitting(true);
+            // 1) Remove from leaderboard
+            const res = await fetch(`${BASE_URL}/api/LeaderBoard/removeEventResult`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ eventId })
+            });
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                throw new Error(j.message || "Failed to remove scorecard");
+            }
+            // 2) Clear winners on event so clients don't show a scorecard
+            await fetch(`${BASE_URL}/api/createEvents/UpdateEventsById`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    eventId,
+                    winners: null,
+                    firstRunnerUp: null,
+                    secondRunnerUp: null,
+                    thirdRunnerUp: null
+                })
+            });
+
+            alert("Scorecard deleted successfully");
+            await loadData();
+        } catch (e) {
+            console.error(e);
+            alert(e.message || "Failed to delete scorecard");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -229,9 +358,9 @@ const AdminScorecards = () => {
                     <h1 className="page-title">Scorecards Management</h1>
                     <p className="page-subtitle">View, add, and edit event scorecards. Changes automatically update the leaderboard.</p>
                     <div style={{ marginTop: 16 }}>
-                        <button onClick={openAddModal} className="btn-modern btn-secondary-modern inline-flex items-center gap-2" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <button onClick={openCreateModal} className="btn-modern btn-secondary-modern inline-flex items-center gap-2" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                             <PlusCircle size={18} />
-                            <span>Add Scorecard</span>
+                            <span>Create Scorecard</span>
                         </button>
                     </div>
                 </div>
@@ -300,17 +429,130 @@ const AdminScorecards = () => {
                 )}
             </main>
 
-            {modalOpen && editingEvent && (
+            {modalOpen && (
                 <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 2000 }}>
                     <div style={{ width: "100%", maxWidth: 720, background: "#121826", borderRadius: 12, padding: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                            <h3 style={{ fontSize: 18, fontWeight: 700 }}>Edit Scorecard – {editingEvent.title}</h3>
+                            <h3 style={{ fontSize: 18, fontWeight: 700 }}>
+                                {createMode ? "Create Scorecard" : `Edit Scorecard – ${editingEvent?.title}`}
+                            </h3>
                             <button onClick={closeModal} title="Close" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                                 <X size={18} />
                             </button>
                         </div>
 
                         <form onSubmit={onSubmit}>
+                            {createMode && (
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Title</label>
+                                        <input
+                                            type="text"
+                                            value={newEvent.title}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, title: e.target.value }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Date</label>
+                                        <input
+                                            type="date"
+                                            value={newEvent.date}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, date: e.target.value }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Time</label>
+                                        <input
+                                            type="time"
+                                            value={newEvent.time}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, time: e.target.value }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Location</label>
+                                        <input
+                                            type="text"
+                                            value={newEvent.location}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, location: e.target.value }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Event Type</label>
+                                        <select
+                                            value={newEvent.eventType}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, eventType: e.target.value }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        >
+                                            <option value="Team">Team</option>
+                                            <option value="Individual">Individual</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Category</label>
+                                        <input
+                                            type="text"
+                                            value={newEvent.category}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, category: e.target.value }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>Winner Points</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newEvent.points0}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, points0: Number(e.target.value) }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>1st Runner-up Points</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newEvent.points1}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, points1: Number(e.target.value) }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>2nd Runner-up Points</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newEvent.points2}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, points2: Number(e.target.value) }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>3rd Runner-up Points</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newEvent.points3}
+                                            onChange={(e) => setNewEvent((p) => ({ ...p, points3: Number(e.target.value) }))}
+                                            required
+                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                                 {RANK_KEYS.map((rk) => (
                                     <div key={rk}>
@@ -332,29 +574,32 @@ const AdminScorecards = () => {
                                 ))}
                             </div>
 
-                            <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "14px 0" }} />
-
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-                                {BATCHES.map((b) => (
-                                    <div key={b}>
-                                        <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>{b} points</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={formScores[b] ?? 0}
-                                            onChange={(e) => handleScoreChange(b, e.target.value)}
-                                            style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
-                                        />
+                            {!createMode && (
+                                <>
+                                    <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "14px 0" }} />
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+                                        {BATCHES.map((b) => (
+                                            <div key={b}>
+                                                <label style={{ display: "block", marginBottom: 6, fontSize: 12, opacity: 0.8 }}>{b} points</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={formScores[b] ?? 0}
+                                                    onChange={(e) => handleScoreChange(b, e.target.value)}
+                                                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: "#0f172a", color: "#fff", border: "1px solid rgba(255,255,255,0.1)" }}
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+                                </>
+                            )}
 
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
                                 <button type="button" onClick={closeModal} className="btn-modern" style={{ opacity: 0.8 }}>
                                     Cancel
                                 </button>
                                 <button type="submit" disabled={submitting} className="btn-modern btn-secondary-modern inline-flex items-center gap-2" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                                    <Save size={16} /> {submitting ? "Saving..." : "Save"}
+                                    <Save size={16} /> {submitting ? (createMode ? "Creating..." : "Saving...") : (createMode ? "Create" : "Save")}
                                 </button>
                             </div>
                         </form>
